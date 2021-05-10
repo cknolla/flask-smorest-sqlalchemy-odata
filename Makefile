@@ -1,0 +1,2 @@
+lintcheck:
+	flake8

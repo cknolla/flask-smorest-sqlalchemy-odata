@@ -1,0 +1,92 @@
+/.vim
+/.project
+/.pydevproject
+/.settings
+.ropeproject
+
+# Eve
+run.py
+settings.py
+
+# Python
+*.py[co]
+__pycache__/
+
+# Gedit
+*~
+
+# Packages
+*.egg
+*.egg-info
+dist
+build
+eggs
+parts
+bin
+var
+sdist
+develop-eggs
+.installed.cfg
+.eggs
+
+# Installer logs
+pip-log.txt
+
+# Unit test / coverage reports
+.coverage
+coverage.xml
+.tox
+
+#Translations
+*.mo
+
+#Mr Developer
+.mr.developer.cfg
+
+# SublimeText project files
+*.sublime-*
+
+# vim temp files
+*.swp
+
+# Environment files
+*.env
+*/*.env
+
+#virtualenv
+Include
+Lib/
+Scripts
+venv
+.env
+
+#pyenv
+.python-version
+
+#OSX
+.Python
+.DS_Store
+
+#Sphinx
+_build
+
+# PyCharm
+.idea
+
+.cache
+.vscode
+.pytest_cache
+
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml
+
+# Jupyter notebooks
+.ipynb_checkpoints
+
+# Local apache builds
+apache
+application.wsgi
+
+data.db
