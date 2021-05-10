@@ -11,12 +11,13 @@ from .resources import resources
 logger = logging.getLogger(__name__)
 
 
-def create_app():
+def create_app(is_test: bool = False):
     """Initial application creation and configuration load."""
     logger.info('Initializing app')
     app = Flask(__name__)
     app_config = Config()
     app.config.from_object(app_config)
+    app.config['TEST_MODE'] = is_test
 
     # Module bootstrap
     db.init_app(app)

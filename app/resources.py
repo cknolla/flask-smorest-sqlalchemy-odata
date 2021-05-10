@@ -3,7 +3,6 @@ from http import HTTPStatus
 
 from flask.views import MethodView
 
-from app.models import seed
 from app.db import db
 from app import schemas, models
 from app.api import CursorPage
@@ -24,7 +23,6 @@ class Create(MethodView):
     def get(self):
         db.drop_all()
         db.create_all()
-        seed()
         return {
             'message': 'Database recreated.',
         }

@@ -1,5 +1,7 @@
 """Test models."""
-from sqlalchemy import Column, Integer, String, ForeignKey, Text
+from datetime import datetime
+
+from sqlalchemy import Column, Integer, String, ForeignKey, Text, Boolean, DateTime
 from sqlalchemy.orm import relationship
 
 from app.db import db
@@ -19,7 +21,7 @@ class Comment(Base):
     )
     body = Column(Text)
 
-    user = relationship('User')
+    user = relationship('User', back_populates='comments')
 
 
 class User(Base):
@@ -28,6 +30,11 @@ class User(Base):
 
     id = Column(Integer, primary_key=True)
     username = Column(String(255), nullable=False, unique=True, index=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    logins = Column(Integer, nullable=False, default=0)
+    created = Column(DateTime, nullable=False, default=datetime.utcnow)
+
+    comments = relationship('Comment', back_populates='user')
 
 
 class Role(Base):
@@ -36,23 +43,3 @@ class Role(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False, unique=True, index=True)
-
-
-def seed():
-    user1 = User(
-        username='user1',
-    )
-    admin_role = Role(
-        name='admin',
-    )
-    comment1 = Comment(
-        user=user1,
-        body='some text',
-    )
-    db.session.add_all([
-        user1,
-        admin_role,
-        comment1,
-    ])
-    db.session.flush()
-    db.session.commit()

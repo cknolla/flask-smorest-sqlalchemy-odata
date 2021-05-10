@@ -10,6 +10,7 @@ itsdangerous==1.1.0
 Jinja2==2.11.3
 MarkupSafe==1.1.1
 marshmallow==3.11.1
+pytest~=6.2.4
 SQLAlchemy==1.4.14
 stringcase==1.2.0
 webargs==8.0.0

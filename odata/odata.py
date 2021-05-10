@@ -39,13 +39,10 @@ class Odata:
         self.order_by = None
         self.odata_filters = [
             OdataFilter(re.compile(r'contains\((\w+),\'(.+)\'\)'), self._parse_contains),
-            OdataFilter(re.compile(r'(\S+)\s+eq\s+null'), self._parse_isnull),
-            OdataFilter(re.compile(r'(\S+)\s+ne\s+null'), self._parse_isnotnull),
-            OdataFilter(re.compile(r'(\S+)\s+eq\s+true'), self._parse_istrue),
-            OdataFilter(re.compile(r'(\S+)\s+eq\s+false'), self._parse_isfalse),
+            OdataFilter(re.compile(r'(\S+)\s+(eq|ne)\s+(null|true|false)'), self._parse_eqbool),
             OdataFilter(re.compile(r'(\S+)\s+eq\s+\'?([^\']*)\'?'), self._parse_eq),
             OdataFilter(re.compile(r'(\S+)\s+ne\s+\'?([^\']*)\'?'), self._parse_ne),
-            OdataFilter(re.compile(r'indexof\((\S+),\'(\S+)\'\)\s+eq\s+-1'), self._parse_indexof),
+            # OdataFilter(re.compile(r'indexof\((\S+),\'(\S+)\'\)\s+eq\s+-1'), self._parse_indexof),
             OdataFilter(re.compile(r'startswith\((\S+),\'(\S+)\'\)'), self._parse_startswith),
             OdataFilter(re.compile(r'endswith\((\S+),\'(\S+)\'\)'), self._parse_endswith),
             OdataFilter(re.compile(r'(\S+)\s+gt\s+(.+)'), self._parse_gt),
@@ -53,17 +50,16 @@ class Odata:
             OdataFilter(re.compile(r'(\S+)\s+ge\s+(.+)'), self._parse_ge),
             OdataFilter(re.compile(r'(\S+)\s+le\s+(.+)'), self._parse_le),
         ]
-        if odata_parameters.get('filter'):
-            self._filter_parser(odata_parameters.get('filter'))
-        if odata_parameters.get('orderby'):
-            self.order_by = text(odata_parameters.get('orderby'))
-        elif default_orderby is not None:
-            self.order_by = default_orderby
+        if filters := odata_parameters.get('filter'):
+            self._filter_parser(filters)
+        self.order_by = text(orderby) \
+            if (orderby := odata_parameters.get('orderby')) \
+            else default_orderby
 
     @staticmethod
     def _parse_value(property_name, value_string):
         try:
-            dt = datetime.strptime(value_string, '%Y-%m-%dT%H:%M:%S.%fZ')
+            dt = datetime.strptime(value_string, '%Y-%m-%dT%H:%M:%S')
             if property_name.endswith('_date'):
                 # if the property is only a date (no time component),
                 # then strip the time component for equality testing
@@ -95,36 +91,21 @@ class Odata:
             ).contains('{}'.format(decoded_search))
         )
 
-    def _parse_isnull(self, match: re.Match):
+    def _parse_eqbool(self, match: re.Match):
+        operator = 'is_' if match.group(2) == 'eq' else 'isnot'
+        value = {
+            'null': None,
+            'true': True,
+            'false': False,
+        }[match.group(3)]
         self.query = self.query.filter(
-            getattr(
-                self.model,
-                get_field(match.group(1)),
-            ).is_(None)
-        )
-
-    def _parse_isnotnull(self, match: re.Match):
-        self.query = self.query.filter(
-            getattr(
-                self.model,
-                get_field(match.group(1)),
-            ).isnot(None)
-        )
-
-    def _parse_istrue(self, match: re.Match):
-        self.query = self.query.filter(
-            getattr(
-                self.model,
-                get_field(match.group(1)),
-            ).is_(True)
-        )
-
-    def _parse_isfalse(self, match: re.Match):
-        self.query = self.query.filter(
-            getattr(
-                self.model,
-                get_field(match.group(1)),
-            ).is_(False)
+            getattr(  # get the operator function 'is_' or 'isnot' of the column
+                getattr(  # get the column
+                    self.model,
+                    get_field(match.group(1)),
+                ),
+                operator,
+            )(value)  # example: User.username.is_(None)
         )
 
     def _parse_eq(self, match: re.Match):
@@ -147,13 +128,13 @@ class Odata:
             ) != parsed_value
         )
 
-    def _parse_indexof(self, match: re.Match):
-        self.query = self.query.filter(
-            getattr(
-                self.model,
-                get_field(match.group(1)),
-            ).notlike(match.group(2))
-        )
+    # def _parse_indexof(self, match: re.Match):
+    #     self.query = self.query.filter(
+    #         getattr(
+    #             self.model,
+    #             get_field(match.group(1)),
+    #         ).notlike(match.group(2))
+    #     )
 
     def _parse_startswith(self, match: re.Match):
         self.query = self.query.filter(
