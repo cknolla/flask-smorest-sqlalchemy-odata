@@ -10,18 +10,20 @@ from tests.utils import parse_response
 @pytest.mark.parametrize('filters, ids', [
     ('contains(username,\'user\')', [1, 2, 3]),
     ('id eq 1', [1]),
-    ('isActive eq true', [1, 3]),
+    ('isActive eq true', [1, 3, 4]),
     ('isActive eq false', [2]),
-    ('isActive eq null', []),
-    ('isActive ne null', [1, 2, 3]),
+    ('note eq null', [3, 4]),
+    ('note ne null', [1, 2]),
     ('startswith(username,\'user\')', [1, 2, 3]),
     ('endswith(username,\'2\')', [2]),
     ('logins lt 51', [1]),
-    ('logins gt 51', [2]),
-    ('logins ge 51', [2, 3]),
+    ('logins gt 51', [2, 4]),
+    ('logins ge 51', [2, 3, 4]),
     ('logins le 51', [1, 3]),
-    ('created gt 2020-05-01T01:00:00', [2, 3]),
+    ('created gt 2020-05-01T01:00:00', [2, 3, 4]),
     ('created lt 2021-01-01T04:00:00', [1, 2]),
+    ('id in (1,3)', [1, 3]),
+    ('username in ("user2", "odd")', [4, 2])
 ])
 def test_user_filters_succeeds(client: FlaskClient, filters, ids):
     response = client.get(
@@ -30,14 +32,15 @@ def test_user_filters_succeeds(client: FlaskClient, filters, ids):
             'filter': filters,
         }
     )
-    response = parse_response(response)
-    assert len(ids) == len(response)
-    assert ids == [user['id'] for user in response]
+    status_code, response = response.status_code, parse_response(response)
+    assert status_code == HTTPStatus.OK
+    assert [user['id'] for user in response] == ids
 
 
 @pytest.mark.parametrize('orderby, ids', [
-    ('id', [1, 2, 3]),
-    ('id desc', [3, 2, 1]),
+    ('id', [1, 2, 3, 4]),
+    ('id desc', [4, 3, 2, 1]),
+    ('roles/id desc', [1, 3, 2])
 ])
 def test_orderby_succeeds(client: FlaskClient, orderby: str, ids: List[int]):
     response = client.get(
@@ -48,7 +51,7 @@ def test_orderby_succeeds(client: FlaskClient, orderby: str, ids: List[int]):
     )
     status_code, response = response.status_code, parse_response(response)
     assert status_code == HTTPStatus.OK
-    assert ids == [user['id'] for user in response]
+    assert [user['id'] for user in response] == ids
 
 
 @pytest.mark.parametrize('orderby, err_segment', [
@@ -89,12 +92,13 @@ def test_with_paging_succeeds(
     )
     status_code, response = response.status_code, parse_response(response)
     assert status_code == HTTPStatus.OK
-    assert ids == [comment['id'] for comment in response]
+    assert [comment['id'] for comment in response] == ids
 
 
 @pytest.mark.parametrize('filters, ids', [
-    ('user/username eq "user1"', [1, 2, 3]),
-    ('user/roles/name eq "admin"', [1, 2, 3, 4, 5])
+    ('user/username eq "user1"', [1, 2, 3]),  # one to many
+    ('user/roles/name eq "admin"', [1, 2, 3, 4, 5]),  # many to many
+    ('user/supervisor/username eq "user1"', [6]),  # self-referential
 ])
 def test_joined_filter_succeeds(
         client: FlaskClient,
@@ -146,4 +150,4 @@ def test_and_filter_succeeds(
     )
     status_code, response = response.status_code, parse_response(response)
     assert status_code == HTTPStatus.OK
-    assert ids == [comment['id'] for comment in response]
+    assert [comment['id'] for comment in response] == ids

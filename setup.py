@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name='flask-smorest-sqlalchemy-odata',
-    version='0.0.3',
+    version=open('VERSION').readline().strip(),
     author='Casey Knolla',
     author_email='cknolla@gmail.com',
     description='Odata filtering and sorting with flask-smorest',

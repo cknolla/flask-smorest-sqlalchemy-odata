@@ -14,9 +14,8 @@ from flask_smorest import Blueprint as FSBlueprint
 from flask_smorest.utils import unpack_tuple_response
 from webargs.flaskparser import FlaskParser
 from werkzeug.exceptions import BadRequest
-from werkzeug.urls import url_decode
-from sqlalchemy import text, DateTime, Date
-from sqlalchemy.orm import Session, RelationshipProperty, InstrumentedAttribute
+from sqlalchemy import DateTime, Date
+from sqlalchemy.orm import Session, RelationshipProperty, InstrumentedAttribute, aliased
 import marshmallow as ma
 
 logger = logging.getLogger('app.' + __name__)
@@ -51,10 +50,10 @@ class Odata:
                 re.compile(r'(\S+)\s+ne\s+[\'\"]?([^\'\"]*)[\'\"]?'),
                 self._parse_ne,
             ), OdataFilter(
-                re.compile(r'startswith\((\S+),\s+[\'\"]([^\'\"]*)[\'\"]\)'),
+                re.compile(r'startswith\((\S+),\s*[\'\"]([^\'\"]*)[\'\"]\)'),
                 self._parse_startswith,
             ), OdataFilter(
-                re.compile(r'endswith\((\S+),[\'\"]([^\'\"]*)[\'\"]\)'),
+                re.compile(r'endswith\((\S+),\s*[\'\"]([^\'\"]*)[\'\"]\)'),
                 self._parse_endswith,
             ), OdataFilter(
                 re.compile(r'(\S+)\s+gt\s+(.+)'),
@@ -68,7 +67,10 @@ class Odata:
             ), OdataFilter(
                 re.compile(r'(\S+)\s+le\s+(.+)'),
                 self._parse_le,
-            ),
+            ), OdataFilter(
+                re.compile(r'(\S+)\s+in\s+\(([^)]*)\)'),
+                self._parse_in,
+            )
         ]
         if filters := odata_parameters.get('filter'):
             logger.info(f'Parsing filter string [{filters}]')
@@ -86,38 +88,71 @@ class Odata:
             return datetime.date(datetime.strptime(value_string, '%Y-%m-%dT%H:%M:%S'))
         return value_string
 
+    def get_field(self, field_input: str) -> InstrumentedAttribute:
+        """Clean raw user input and return likely field name."""
+        clean_fields = [stringcase.snakecase(field) for field in field_input.strip().split('/')]
+        model = self.model
+        for field_name in clean_fields:
+            if (field := getattr(model, field_name, None)) is None:
+                raise BadRequest(
+                    description=f'{model.__name__} has no column named {field_name}',
+                )
+            if field_name != clean_fields[-1]:
+                if not isinstance(field.property, RelationshipProperty):
+                    raise BadRequest(
+                        description=f'{model.__name__} has no relationship property '
+                                    f'named {field_name}',
+                    )
+                field_class = field.property.mapper.class_
+                if field_class == model:
+                    # handle self-referential joins
+                    model = aliased(field_class)
+                    # noqa https://docs.sqlalchemy.org/en/14/orm/self_referential.html#self-referential-query-strategies
+                    self.query = self.query.join(field.of_type(model))
+                else:
+                    model = field_class
+                    self.query = self.query.join(field)
+            else:
+                return field
+
     def _orderby_parser(self, orderby: str):
         orderby_strs = orderby.split(' ')
         if len(orderby_strs) > 2:
             raise BadRequest(
                 description='The orderby parameter should only contain [columnName direction]',
             )
+        direction = 'asc'
         if len(orderby_strs) == 2:
             direction = orderby_strs[1].lower()
             if direction not in ('asc', 'desc',):
                 raise BadRequest(
                     description='orderby direction can only be [asc] or [desc]',
                 )
-        self.get_field(orderby_strs[0])  # ensure field is valid and exists
-        self.query = self.query.order_by(text(orderby))
+        field = self.get_field(orderby_strs[0])  # ensure field is valid and exists
+        self.query = self.query.order_by(getattr(field, direction)())
 
     def _filter_parser(self, filter_string: str):
         # strip surrounding quotes if they exist
         if filter_string.startswith('('):
             filter_string = filter_string[1:-1]
-        segments = filter_string.split('and')
+        segments = filter_string.split(' and ')
         for segment in segments:
             segment = segment.strip()
+            filter_found = False
             for odata_filter in self.odata_filters:
                 if match := re.search(odata_filter.regex, segment):
                     odata_filter.func(match)
+                    filter_found = True
                     break
+            if not filter_found:
+                raise BadRequest(
+                    description=f'No available filter matches segment {segment}',
+                )
 
     def _parse_contains(self, match: re.Match):
-        decoded_search = next(iter(url_decode(match.group(2), cls=dict)))
-        logger.debug(f'decoded_search: {decoded_search}')
+        # value = next(iter(url_decode(match.group(2), cls=dict)))
         self.query = self.query.filter(
-            self.get_field(match.group(1)).contains(f'{decoded_search}'),
+            self.get_field(match.group(1)).contains(match.group(2)),
         )
 
     def _parse_eqbool(self, match: re.Match):
@@ -186,25 +221,16 @@ class Odata:
             field <= parsed_value
         )
 
-    def get_field(self, field_input: str) -> InstrumentedAttribute:
-        """Clean raw user input and return likely field name."""
-        clean_fields = [stringcase.snakecase(field) for field in field_input.strip().split('/')]
-        model = self.model
-        for field_name in clean_fields:
-            if (field := getattr(model, field_name, None)) is None:
-                raise BadRequest(
-                    description=f'{model.__name__} has no column named {field_name}',
-                )
-            if field_name != clean_fields[-1]:
-                if not isinstance(field.property, RelationshipProperty):
-                    raise BadRequest(
-                        description=f'{model.__name__} has no relationship property '
-                                    f'named {field_name}',
-                    )
-                self.query = self.query.join(field)
-                model = field.property.mapper.class_
-            else:
-                return field
+    def _parse_in(self, match: re.Match):
+        field = self.get_field(match.group(1))
+        values = [
+            self._parse_value(field, value.strip(' \'"'))
+            for value
+            in match.group(2).split(',')
+        ]
+        self.query = self.query.filter(
+            field.in_(values)
+        )
 
 
 class OdataMixin:
