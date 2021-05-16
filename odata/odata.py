@@ -50,9 +50,6 @@ class Odata:
             ), OdataFilter(
                 re.compile(r'(\S+)\s+ne\s+[\'\"]?([^\'\"]*)[\'\"]?'),
                 self._parse_ne,
-                # ), OdataFilter(
-                #     re.compile(r'indexof\((\S+),\'(\S+)\'\)\s+eq\s+-1'),
-                #     self._parse_indexof,
             ), OdataFilter(
                 re.compile(r'startswith\((\S+),\s+[\'\"]([^\'\"]*)[\'\"]\)'),
                 self._parse_startswith,
@@ -74,8 +71,10 @@ class Odata:
             ),
         ]
         if filters := odata_parameters.get('filter'):
+            logger.info(f'Parsing filter string [{filters}]')
             self._filter_parser(filters)
         if (orderby := odata_parameters.get('orderby', default_orderby)) is not None:
+            logger.info(f'Parsing orderby string [{orderby}]')
             self._orderby_parser(orderby)
 
     @staticmethod
@@ -86,16 +85,6 @@ class Odata:
         elif isinstance(field_type, Date):
             return datetime.date(datetime.strptime(value_string, '%Y-%m-%dT%H:%M:%S'))
         return value_string
-        # try:
-        #     dt = datetime.strptime(value_string, '%Y-%m-%dT%H:%M:%S')
-        #     if property_name.endswith('_date'):
-        #         # if the property is only a date (no time component),
-        #         # then strip the time component for equality testing
-        #         date = datetime.date(dt)
-        #         return date
-        #     return dt
-        # except ValueError:
-        #     return value_string
 
     def _orderby_parser(self, orderby: str):
         orderby_strs = orderby.split(' ')
@@ -158,14 +147,6 @@ class Odata:
         self.query = self.query.filter(
             field != parsed_value
         )
-
-    # def _parse_indexof(self, match: re.Match):
-    #     self.query = self.query.filter(
-    #         getattr(
-    #             self.model,
-    #             get_field(match.group(1)),
-    #         ).notlike(match.group(2))
-    #     )
 
     def _parse_startswith(self, match: re.Match):
         self.query = self.query.filter(
@@ -247,18 +228,14 @@ class OdataMixin:
 
             @wraps(func)
             def wrapper(*args, **kwargs):
-
                 odata_params = self.ODATA_ARGUMENTS_PARSER.parse(
                     OdataSchema, request, location='query')
-
                 # Execute decorated function
                 model, status, headers = unpack_tuple_response(
                     func(*args, **kwargs)
                 )
-
                 # Apply Odata
                 query = Odata(session, model, odata_parameters=odata_params).query
-
                 return query, status, headers
 
             # Add odata params to doc info in wrapper object
@@ -272,7 +249,6 @@ class OdataMixin:
             }
 
             return wrapper
-
         return decorator
 
     def _prepare_odata_doc(self, doc, doc_info, *, spec, **kwargs):
