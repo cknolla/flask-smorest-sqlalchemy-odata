@@ -35,6 +35,22 @@ class User(Base):
     created = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     comments = relationship('Comment', back_populates='user')
+    roles = relationship('Role', secondary='user_roles', back_populates='users')
+
+
+class UserRole(Base):
+    __tablename__ = 'user_roles'
+
+    user_id = Column(
+        ForeignKey('users.id', ondelete='CASCADE', onupdate='CASCADE'),
+        nullable=False,
+        primary_key=True,
+    )
+    role_id = Column(
+        ForeignKey('roles.id', ondelete='CASCADE', onupdate='CASCADE'),
+        nullable=False,
+        primary_key=True,
+    )
 
 
 class Role(Base):
@@ -43,3 +59,5 @@ class Role(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String(255), nullable=False, unique=True, index=True)
+
+    users = relationship('User', secondary='user_roles', back_populates='roles')

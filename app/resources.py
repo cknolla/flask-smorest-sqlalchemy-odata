@@ -6,9 +6,9 @@ from flask.views import MethodView
 from app.db import db
 from app import schemas, models
 from app.api import CursorPage
-from odata.odata import OdataBlueprint
+from odata import Blueprint
 
-resources = OdataBlueprint(
+resources = Blueprint(
     'resources',
     __name__,
     url_prefix='/',
@@ -36,3 +36,13 @@ class User(MethodView):
     @resources.odata(db.session)
     def get(self):
         return models.User
+
+
+@resources.route('/comment')
+class Comment(MethodView):
+
+    @resources.response(HTTPStatus.OK, schemas.Comment(many=True))
+    @resources.paginate(CursorPage)
+    @resources.odata(db.session)
+    def get(self):
+        return models.Comment

@@ -18,7 +18,7 @@ sys.path.append(path)
 from app import create_app, db, models  # noqa
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def app():
     app = create_app(is_test=True)
     with app.app_context():
@@ -42,23 +42,60 @@ def app():
         )
         admin_role = models.Role(
             name='admin',
+            users=[
+                user1,
+                user2,
+            ],
+        )
+        operator_role = models.Role(
+            name='operator',
+            users=[
+                user1,
+                user3,
+            ],
         )
         comment1 = models.Comment(
             user=user1,
             body='some text',
+        )
+        comment2 = models.Comment(
+            user=user1,
+            body='a response',
+        )
+        comment3 = models.Comment(
+            user=user1,
+            body='additional text',
+        )
+        comment4 = models.Comment(
+            user=user2,
+            body='keep going',
+        )
+        comment5 = models.Comment(
+            user=user2,
+            body='ongoing discussion',
+        )
+        comment6 = models.Comment(
+            user=user3,
+            body='talking to myself',
         )
         db.session.add_all([
             user1,
             user2,
             user3,
             admin_role,
+            operator_role,
             comment1,
+            comment2,
+            comment3,
+            comment4,
+            comment5,
+            comment6,
         ])
         db.session.flush()
         db.session.commit()
     yield app
 
 
-@pytest.fixture
+@pytest.fixture(scope='module')
 def client(app) -> FlaskClient:
     yield app.test_client()

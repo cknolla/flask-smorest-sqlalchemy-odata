@@ -2,6 +2,7 @@
 import logging
 
 from flask import Flask
+from werkzeug.exceptions import HTTPException
 
 from .db import db
 from .api import api
@@ -25,5 +26,17 @@ def create_app(is_test: bool = False):
 
     # register api blueprints
     api.register_blueprint(resources)
+
+    @app.errorhandler(HTTPException)
+    def handle_http_exception(err: HTTPException):
+        body = {
+            'code': err.code,
+            'status': err.name,
+            'message': err.description,
+            'errors': {},
+        }
+        if hasattr(err, 'data') and err.data:
+            body['errors'] = err.data.get('messages')
+        return body, err.code
 
     return app
