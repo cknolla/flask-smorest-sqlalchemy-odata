@@ -238,7 +238,7 @@ class OdataMixin:
 
     ODATA_ARGUMENTS_PARSER = FlaskParser()
 
-    def odata(self, session):
+    def odata(self, session: Session, default_orderby: str = None):
         """Decorator adding odata capability to endpoint."""
 
         parameters = {
@@ -261,7 +261,12 @@ class OdataMixin:
                     func(*args, **kwargs)
                 )
                 # Apply Odata
-                query = Odata(session, model, odata_parameters=odata_params).query
+                query = Odata(
+                    session=session,
+                    model=model,
+                    odata_parameters=odata_params,
+                    default_orderby=default_orderby,
+                ).query
                 return query, status, headers
 
             # Add odata params to doc info in wrapper object

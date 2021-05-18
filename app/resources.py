@@ -46,3 +46,13 @@ class Comment(MethodView):
     @resources.odata(db.session)
     def get(self):
         return models.Comment
+
+
+@resources.route('/role')
+class Role(MethodView):
+
+    @resources.response(HTTPStatus.OK, schemas.Role(many=True))
+    @resources.paginate(CursorPage)
+    @resources.odata(db.session, default_orderby='id desc')
+    def get(self):
+        return models.Role

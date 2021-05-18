@@ -151,3 +151,12 @@ def test_and_filter_succeeds(
     status_code, response = response.status_code, parse_response(response)
     assert status_code == HTTPStatus.OK
     assert [comment['id'] for comment in response] == ids
+
+
+def test_default_orderby_succeeds(client: FlaskClient):
+    response = client.get(
+        '/role',
+    )
+    status_code, response = response.status_code, parse_response(response)
+    assert status_code == HTTPStatus.OK
+    assert [role['id'] for role in response] == [2, 1]
