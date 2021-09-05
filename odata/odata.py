@@ -81,11 +81,12 @@ class Odata:
 
     @staticmethod
     def _parse_value(field: InstrumentedAttribute, value_string: str):
-        field_type = field.property.columns[0].type
-        if isinstance(field_type, DateTime):
-            return datetime.strptime(value_string, '%Y-%m-%dT%H:%M:%S')
-        elif isinstance(field_type, Date):
-            return datetime.date(datetime.strptime(value_string, '%Y-%m-%dT%H:%M:%S'))
+        if hasattr(field, 'property'):
+            field_type = field.property.columns[0].type
+            if isinstance(field_type, DateTime):
+                return datetime.strptime(value_string, '%Y-%m-%dT%H:%M:%S')
+            elif isinstance(field_type, Date):
+                return datetime.date(datetime.strptime(value_string, '%Y-%m-%dT%H:%M:%S'))
         return value_string
 
     def get_field(self, field_input: str) -> InstrumentedAttribute:
@@ -98,7 +99,8 @@ class Odata:
                     description=f'{model.__name__} has no column named {field_name}',
                 )
             if field_name != clean_fields[-1]:
-                if not isinstance(field.property, RelationshipProperty):
+                if not hasattr(field, 'property') or \
+                        not isinstance(field.property, RelationshipProperty):
                     raise BadRequest(
                         description=f'{model.__name__} has no relationship property '
                                     f'named {field_name}',
@@ -255,7 +257,8 @@ class OdataMixin:
             @wraps(func)
             def wrapper(*args, **kwargs):
                 odata_params = self.ODATA_ARGUMENTS_PARSER.parse(
-                    OdataSchema, request, location='query')
+                    OdataSchema, request, location='query'
+                )
                 # Execute decorated function
                 model, status, headers = unpack_tuple_response(
                     func(*args, **kwargs)

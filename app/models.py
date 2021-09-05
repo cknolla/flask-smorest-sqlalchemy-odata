@@ -1,8 +1,10 @@
 """Test models."""
 from datetime import datetime
 
-from sqlalchemy import Column, Integer, String, ForeignKey, Text, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, Text, Boolean, DateTime, select
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, backref
+from sqlalchemy.sql import expression
 
 from app.db import db
 
@@ -43,6 +45,28 @@ class User(Base):
     comments = relationship('Comment', back_populates='user')
     roles = relationship('Role', secondary='user_roles', back_populates='users')
     reports = relationship('User', backref=backref('supervisor', remote_side=[id]))
+
+    @hybrid_property
+    def is_supervisor(self) -> bool:
+        """Return whether user is a supervisor."""
+        return self.supervisor_id is None
+
+    @is_supervisor.expression
+    def is_supervisor(cls) -> expression:
+        """Return SQL expression for is_supervisor."""
+        return cls.supervisor_id.is_(None)
+
+    @hybrid_property
+    def username_supervisor_id(self) -> str:
+        """Concat a couple fields to make a str hybrid property."""
+        return f'{self.username}{self.supervisor_id}'
+
+    @username_supervisor_id.expression
+    def username_supervisor_id(cls) -> expression:
+        """Return SQL expression."""
+        return select([
+            cls.username.concat(cls.supervisor_id),
+        ]).correlate(cls).as_scalar()
 
 
 class UserRole(Base):
