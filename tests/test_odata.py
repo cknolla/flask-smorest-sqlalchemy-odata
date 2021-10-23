@@ -99,9 +99,10 @@ def test_with_paging_succeeds(
 
 
 @pytest.mark.parametrize('filters, ids', [
-    ('user/username eq "user1"', [1, 2, 3]),  # one to many
-    ('user/roles/name eq "admin"', [1, 2, 3, 4, 5]),  # many to many
-    ('user/supervisor/username eq "user1"', [6]),  # self-referential
+    ('contains(user/username,"user1")', {1, 2, 3}),  # within contains
+    ('user/username eq "user1"', {1, 2, 3}),  # one to many
+    ('user/roles/name eq "admin"', {1, 2, 3, 4, 5}),  # many to many
+    ('user/supervisor/username eq "user1"', {6}),  # self-referential
 ])
 def test_joined_filter_succeeds(
         client: FlaskClient,
@@ -116,7 +117,7 @@ def test_joined_filter_succeeds(
     )
     status_code, response = response.status_code, parse_response(response)
     assert status_code == HTTPStatus.OK
-    assert ids == [comment['id'] for comment in response]
+    assert {comment['id'] for comment in response} == ids
 
 
 @pytest.mark.parametrize('filters, err_segment', [

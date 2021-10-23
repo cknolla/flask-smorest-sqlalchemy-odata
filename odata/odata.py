@@ -38,7 +38,7 @@ class Odata:
         self.query = session.query(self.model)
         self.odata_filters = [
             OdataFilter(
-                re.compile(r'contains\((\w+),[\'\"]([^\'\"]*)[\'\"]\)'),
+                re.compile(r'contains\(([^,]+),[\'\"]([^\'\"]*)[\'\"]\)'),
                 self._parse_contains,
             ), OdataFilter(
                 re.compile(r'(\S+)\s+(eq|ne)\s+(null|true|false)'),
@@ -152,9 +152,10 @@ class Odata:
                 )
 
     def _parse_contains(self, match: re.Match):
-        # value = next(iter(url_decode(match.group(2), cls=dict)))
+        # self.query can get modified within get_field, so don't embed that call within filter
+        field = self.get_field(match.group(1)).contains(match.group(2))
         self.query = self.query.filter(
-            self.get_field(match.group(1)).contains(match.group(2)),
+            field,
         )
 
     def _parse_eqbool(self, match: re.Match):
@@ -164,9 +165,10 @@ class Odata:
             'true': True,
             'false': False,
         }[match.group(3)]
+        field = self.get_field(match.group(1))  # get the field to filter by
         self.query = self.query.filter(
             getattr(  # get the operator function 'is_' or 'isnot' of the column
-                self.get_field(match.group(1)),  # get the field to filter by
+                field,
                 operator,
             )(value)  # example: User.username.is_(None)
         )
@@ -191,8 +193,9 @@ class Odata:
         )
 
     def _parse_endswith(self, match: re.Match):
+        field = self.get_field(match.group(1)).endswith(match.group(2))
         self.query = self.query.filter(
-            self.get_field(match.group(1)).endswith(match.group(2)),
+            field,
         )
 
     def _parse_gt(self, match: re.Match):
