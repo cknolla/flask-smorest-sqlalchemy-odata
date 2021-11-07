@@ -178,9 +178,6 @@ class Odata:
             elif not in_quotes and char == ")":
                 paren_depth -= 1
                 # altered_char = '[_)_]'
-
-
-
             elif not in_quotes and filter_string[index : index + 5] == " and ":
                 altered_char = " [_AND_] "
                 skipping = 4
