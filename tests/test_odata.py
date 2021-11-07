@@ -227,6 +227,10 @@ def test_and_filter_succeeds(
     "filters, ids",
     [
         ('username eq "user1" or logins gt 400', {1, 4}),
+        ('endswith(username,"r3") or isActive eq false', {2, 3}),
+        # TODO: join with outerjoin instead of inner join to get this expected result
+        #   the join to supervisor is excluding user2 since it has no supervisor
+        # ('startswith(supervisor/username,"user1") or isActive eq false', {2, 3}),
     ],
 )
 def test_or_filter_succeeds(
