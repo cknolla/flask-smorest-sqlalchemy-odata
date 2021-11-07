@@ -8,8 +8,8 @@ from .odata import (
 )
 
 __all__ = [
-    'Blueprint',
-    'Odata',
-    'OdataMixin',
-    'OdataSchema',
+    "Blueprint",
+    "Odata",
+    "OdataMixin",
+    "OdataSchema",
 ]

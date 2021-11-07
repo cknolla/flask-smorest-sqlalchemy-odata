@@ -1,0 +1,6 @@
+exec 1>&2
+
+echo "running black formatter check"
+make blackformat || { echo "run black formatter and commit again" ; exit 1;}
+echo "lint checking with python located at $(which python)"
+make lintcheck

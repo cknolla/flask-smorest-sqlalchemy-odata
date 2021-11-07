@@ -9,28 +9,26 @@ from app.api import CursorPage
 from odata import Blueprint
 
 resources = Blueprint(
-    'resources',
+    "resources",
     __name__,
-    url_prefix='/',
-    description='root resources',
+    url_prefix="/",
+    description="root resources",
 )
 
 
-@resources.route('/')
+@resources.route("/")
 class Create(MethodView):
-
     @resources.response(HTTPStatus.OK, schemas.Message)
     def get(self):
         db.drop_all()
         db.create_all()
         return {
-            'message': 'Database recreated.',
+            "message": "Database recreated.",
         }
 
 
-@resources.route('/user')
+@resources.route("/user")
 class User(MethodView):
-
     @resources.response(HTTPStatus.OK, schemas.User(many=True))
     @resources.paginate(CursorPage)
     @resources.odata(db.session)
@@ -38,9 +36,8 @@ class User(MethodView):
         return models.User
 
 
-@resources.route('/comment')
+@resources.route("/comment")
 class Comment(MethodView):
-
     @resources.response(HTTPStatus.OK, schemas.Comment(many=True))
     @resources.paginate(CursorPage)
     @resources.odata(db.session)
@@ -48,11 +45,10 @@ class Comment(MethodView):
         return models.Comment
 
 
-@resources.route('/role')
+@resources.route("/role")
 class Role(MethodView):
-
     @resources.response(HTTPStatus.OK, schemas.Role(many=True))
     @resources.paginate(CursorPage)
-    @resources.odata(db.session, default_orderby='id desc')
+    @resources.odata(db.session, default_orderby="id desc")
     def get(self):
         return models.Role

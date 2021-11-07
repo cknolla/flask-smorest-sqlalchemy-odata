@@ -1,5 +1,6 @@
 apispec==4.4.1
 attrs==21.2.0
+black==21.10b0
 click==7.1.2
 flake8==3.9.1
 flake8-print==4.0.0

@@ -2,3 +2,4 @@
 exclude = venv/ .git/
 max-line-length = 100
 docstring-convention google
+extend-ignore = E203
