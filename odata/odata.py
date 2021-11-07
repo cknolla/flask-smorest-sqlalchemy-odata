@@ -24,7 +24,7 @@ logger = logging.getLogger("app." + __name__)
 
 
 OdataFilter = namedtuple("OdataFilter", ["regex", "func"])
-_DEFAULT_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
+_DEFAULT_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 
 
 class Odata:
