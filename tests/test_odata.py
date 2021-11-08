@@ -37,9 +37,9 @@ def test_user_filters_succeeds(client: FlaskClient, filters, ids):
             "filter": filters,
         },
     )
-    status_code, response = response.status_code, parse_response(response)
-    assert status_code == HTTPStatus.OK
-    assert {user["id"] for user in response} == ids
+    users = parse_response(response)
+    assert response.status_code == HTTPStatus.OK
+    assert {user["id"] for user in users} == ids
 
 
 @pytest.mark.parametrize(
@@ -58,9 +58,9 @@ def test_mismatched_parens_fails(client: FlaskClient, filters: str):
             "filter": filters,
         },
     )
-    status_code, response = response.status_code, parse_response(response)
-    assert status_code == HTTPStatus.BAD_REQUEST
-    assert response["message"] == "Parentheses in filter string are mismatched."
+    body = parse_response(response)
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert body["message"] == "Parentheses in filter string are mismatched."
 
 
 @pytest.mark.parametrize(
@@ -79,9 +79,21 @@ def test_mismatched_quotes_fails(client: FlaskClient, filters: str):
             "filter": filters,
         },
     )
-    status_code, response = response.status_code, parse_response(response)
-    assert status_code == HTTPStatus.BAD_REQUEST
-    assert response["message"] == "Quotes in filter string are mismatched."
+    body = parse_response(response)
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert body["message"] == "Quotes in filter string are mismatched."
+
+
+def test_combined_and_or_fails(client: FlaskClient):
+    response = client.get(
+        "/user",
+        query_string={
+            "filter": "username eq 'user1' and logins gt 1 or username eq 'user2'",
+        },
+    )
+    body = parse_response(response)
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert body["message"] == "Currently, AND and OR cannot be mixed in filters."
 
 
 @pytest.mark.parametrize(
@@ -95,9 +107,9 @@ def test_orderby_succeeds(client: FlaskClient, orderby: str, ids: List[int]):
             "orderby": orderby,
         },
     )
-    status_code, response = response.status_code, parse_response(response)
-    assert status_code == HTTPStatus.OK
-    assert [user["id"] for user in response] == ids
+    users = parse_response(response)
+    assert response.status_code == HTTPStatus.OK
+    assert [user["id"] for user in users] == ids
 
 
 @pytest.mark.parametrize(
@@ -113,9 +125,9 @@ def test_orderby_fails(client: FlaskClient, orderby: str, err_segment: str):
             "orderby": orderby,
         },
     )
-    status_code, response = response.status_code, parse_response(response)
-    assert status_code == HTTPStatus.BAD_REQUEST
-    assert err_segment in response["message"]
+    body = parse_response(response)
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert err_segment in body["message"]
 
 
 @pytest.mark.parametrize(
@@ -143,9 +155,9 @@ def test_with_paging_succeeds(
             "page": page,
         },
     )
-    status_code, response = response.status_code, parse_response(response)
-    assert status_code == HTTPStatus.OK
-    assert [comment["id"] for comment in response] == ids
+    comments = parse_response(response)
+    assert response.status_code == HTTPStatus.OK
+    assert [comment["id"] for comment in comments] == ids
 
 
 @pytest.mark.parametrize(
@@ -168,9 +180,9 @@ def test_joined_filter_succeeds(
             "filter": filters,
         },
     )
-    status_code, response = response.status_code, parse_response(response)
-    assert status_code == HTTPStatus.OK
-    assert {comment["id"] for comment in response} == ids
+    comments = parse_response(response)
+    assert response.status_code == HTTPStatus.OK
+    assert {comment["id"] for comment in comments} == ids
 
 
 @pytest.mark.parametrize(
@@ -195,9 +207,9 @@ def test_joined_with_invalid_property_fails(
             "filter": filters,
         },
     )
-    status_code, response = response.status_code, parse_response(response)
-    assert status_code == HTTPStatus.BAD_REQUEST
-    assert err_segment in response["message"]
+    body = parse_response(response)
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert err_segment in body["message"]
 
 
 @pytest.mark.parametrize(
@@ -218,9 +230,9 @@ def test_and_filter_succeeds(
             "filter": filters,
         },
     )
-    status_code, response = response.status_code, parse_response(response)
-    assert status_code == HTTPStatus.OK
-    assert [comment["id"] for comment in response] == ids
+    comments = parse_response(response)
+    assert response.status_code == HTTPStatus.OK
+    assert [comment["id"] for comment in comments] == ids
 
 
 @pytest.mark.parametrize(
@@ -253,6 +265,6 @@ def test_default_orderby_succeeds(client: FlaskClient):
     response = client.get(
         "/role",
     )
-    status_code, response = response.status_code, parse_response(response)
-    assert status_code == HTTPStatus.OK
-    assert [role["id"] for role in response] == [2, 1]
+    roles = parse_response(response)
+    assert response.status_code == HTTPStatus.OK
+    assert [role["id"] for role in roles] == [2, 1]
