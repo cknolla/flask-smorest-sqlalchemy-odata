@@ -1,5 +1,4 @@
 from http import HTTPStatus
-from typing import List, Set
 
 import pytest
 from flask.testing import FlaskClient
@@ -98,9 +97,13 @@ def test_combined_and_or_fails(client: FlaskClient):
 
 @pytest.mark.parametrize(
     "orderby, ids",
-    [("id", [1, 2, 3, 4]), ("id desc", [4, 3, 2, 1]), ("roles/id desc", [1, 3, 2])],
+    [
+        ("id", [1, 2, 3, 4]),
+        ("id desc", [4, 3, 2, 1]),
+        ("roles/id desc", [1, 3, 2]),
+    ],
 )
-def test_orderby_succeeds(client: FlaskClient, orderby: str, ids: List[int]):
+def test_orderby_succeeds(client: FlaskClient, orderby: str, ids: list[int]):
     response = client.get(
         "/user",
         query_string={
@@ -144,7 +147,7 @@ def test_with_paging_succeeds(
     orderby: str,
     page_size: int,
     page: int,
-    ids: List[int],
+    ids: list[int],
 ):
     response = client.get(
         "/comment",
@@ -172,7 +175,7 @@ def test_with_paging_succeeds(
 def test_joined_filter_succeeds(
     client: FlaskClient,
     filters: str,
-    ids: List[int],
+    ids: list[int],
 ):
     response = client.get(
         "/comment",
@@ -215,14 +218,14 @@ def test_joined_with_invalid_property_fails(
 @pytest.mark.parametrize(
     "filters, ids",
     [
-        ('username eq "user1" and logins lt 5', [1]),
-        ('startswith(username,"user") and roles/name eq "operator"', [1, 3]),
+        ('username eq "user1" and logins lt 5', {1}),
+        ('startswith(username,"user") and roles/name eq "operator"', {1, 3}),
     ],
 )
 def test_and_filter_succeeds(
     client: FlaskClient,
     filters: str,
-    ids: List[int],
+    ids: set[int],
 ):
     response = client.get(
         "/user",
@@ -232,7 +235,7 @@ def test_and_filter_succeeds(
     )
     comments = parse_response(response)
     assert response.status_code == HTTPStatus.OK
-    assert [comment["id"] for comment in comments] == ids
+    assert {comment["id"] for comment in comments} == ids
 
 
 @pytest.mark.parametrize(
@@ -248,7 +251,7 @@ def test_and_filter_succeeds(
 def test_or_filter_succeeds(
     client: FlaskClient,
     filters: str,
-    ids: Set[int],
+    ids: set[int],
 ):
     response = client.get(
         "/user",
