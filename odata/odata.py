@@ -229,7 +229,7 @@ class Odata:
         return self.get_field(match.group(1)).contains(match.group(2))
 
     def _parse_eqbool(self, match: re.Match) -> expression:
-        operator = "is_" if match.group(2) == "eq" else "isnot"
+        operator = "__eq__" if match.group(2) == "eq" else "__ne__"
         value = {
             "null": None,
             "true": True,

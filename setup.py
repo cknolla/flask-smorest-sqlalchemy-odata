@@ -13,7 +13,7 @@ setup(
     url="https://github.com/cknolla/flask-smorest-sqlalchemy-odata",
     license="MIT",
     packages=["odata"],
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     include_package_data=True,
     install_requires=[
         "flask>=1.0",
