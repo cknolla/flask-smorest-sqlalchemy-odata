@@ -26,7 +26,6 @@ logger = logging.getLogger("app." + __name__)
 
 
 OdataFilter = namedtuple("OdataFilter", ["regex", "func"])
-# Segment = namedtuple("Segment", ["junction", "expression", "string"])
 _DEFAULT_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 
 
@@ -147,10 +146,10 @@ class Odata:
                     # handle self-referential joins
                     model = aliased(field_class)
                     # noqa https://docs.sqlalchemy.org/en/14/orm/self_referential.html#self-referential-query-strategies
-                    self.query = self.query.join(field.of_type(model))
+                    self.query = self.query.outerjoin(field.of_type(model))
                 else:
                     model = field_class
-                    self.query = self.query.join(field)
+                    self.query = self.query.outerjoin(field)
             else:
                 return field
 

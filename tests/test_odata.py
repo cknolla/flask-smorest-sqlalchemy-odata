@@ -104,7 +104,7 @@ def test_mismatched_quotes_fails(client: FlaskClient, filters: str):
             "(username eq 'user2' and logins eq 100 and isActive eq false) or ("
             "logins gt 1 and username eq 'user3'"
             ") or contains(note,'backup') or ("
-            "logins gt 1000 and username eq 'user4'"
+            "logins gt 1000 and username eq 'user4' and supervisor/id eq 1"
             ")",
             {2, 3},
         ),
@@ -138,7 +138,7 @@ def test_complex_filter_succeeds(client: FlaskClient, filters: str, ids: set[int
     [
         ("id", [1, 2, 3, 4]),
         ("id desc", [4, 3, 2, 1]),
-        ("roles/id desc", [1, 3, 2]),
+        ("roles/id desc", [1, 3, 2, 4]),
     ],
 )
 def test_orderby_succeeds(client: FlaskClient, orderby: str, ids: list[int]):
