@@ -84,6 +84,7 @@ def test_mismatched_quotes_fails(client: FlaskClient, filters: str):
 @pytest.mark.parametrize(
     "filters, ids",
     [
+        ("isActive eq false or (startswith(username,'od') and id eq 4)", {2, 4}),
         (
             "username ne 'user1' and (id in (4) or username eq 'user3') and "
             "(logins gt 99 and logins lt 101)",

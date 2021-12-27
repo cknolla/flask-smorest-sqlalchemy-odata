@@ -286,11 +286,14 @@ class Odata:
             _close_expression()
         return segments
 
-    def _build_filters(self, segments: list["Segment"]) -> BooleanClauseList:
+    def _build_filters(
+        self, segments: list["Segment"]
+    ) -> tuple[list[BooleanClauseList], Callable]:
         """Build SQLAlchemy filters from parsed segments."""
         filters = []
         expressions = []
         junction = None
+        outer_junction = and_
         for segment in segments:
             if segment.expression is not None:
                 if junction is None:
@@ -304,30 +307,48 @@ class Odata:
                     junction = segment.junction
                     expressions = []
                 expressions.append(segment.expression)
+            else:
+                outer_junction = segment.junction
             if segment.segments:
-                expressions.append(self._build_filters(segment.segments))
+                inner_filters, inner_junction = self._build_filters(segment.segments)
+                if (
+                    junction_target := (expressions.pop() if expressions else None)
+                ) is not None:
+                    expressions.append(
+                        inner_junction(
+                            junction_target,
+                            *inner_filters,
+                        )
+                    )
+                else:
+                    expressions.append(
+                        inner_junction(
+                            *inner_filters,
+                        )
+                    )
         if expressions:
             outer_junction = (
-                segments[-1].junction if segments[-1].junction is not None else and_
+                segments[0].junction if segments[0].junction is not None else and_
             )
+            if not junction:
+                junction = (
+                    segments[-1].junction
+                    if segments and segments[-1].junction
+                    else and_
+                )
             filters.append(
-                outer_junction(
+                junction(
                     *expressions,
                 )
             )
-        outer_junction = (
-            segments[0].junction if segments[0].junction is not None else and_
-        )
-        return outer_junction(
-            *filters,
-        )
+        return filters, outer_junction
 
     def _filter_parser(self):
         logger.info(f"{self.filter_string=}")
         segments = self._parse_segments()
         logger.info(f"{segments=}")
-        filters = self._build_filters(segments)
-        self.query = self.query.filter(filters)
+        filters = self._build_filters(segments)[0]
+        self.query = self.query.filter(*filters)
         logger.info(
             self.query.statement.compile(compile_kwargs={"literal_binds": True})
         )
