@@ -4,19 +4,21 @@ import logging
 import re
 from collections import OrderedDict, namedtuple
 from copy import deepcopy
+from dataclasses import dataclass, field
 from functools import wraps
 from http import HTTPStatus
 from datetime import datetime
-from operator import or_
+from typing import Callable
 
 import stringcase
 from flask import request
 from flask_smorest import Blueprint as FSBlueprint
 from flask_smorest.utils import unpack_tuple_response
 from sqlalchemy.sql import expression
+from sqlalchemy.sql.elements import BooleanClauseList
 from webargs.flaskparser import FlaskParser
 from werkzeug.exceptions import BadRequest
-from sqlalchemy import DateTime, Date, and_
+from sqlalchemy import DateTime, Date, and_, or_
 from sqlalchemy.orm import Session, RelationshipProperty, InstrumentedAttribute, aliased
 import marshmallow as ma
 
@@ -24,7 +26,19 @@ logger = logging.getLogger("app." + __name__)
 
 
 OdataFilter = namedtuple("OdataFilter", ["regex", "func"])
+# Segment = namedtuple("Segment", ["junction", "expression", "string"])
 _DEFAULT_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
+
+
+@dataclass
+class Segment:
+    """A nesting layer of expression segments."""
+
+    depth: int = 0
+    segments: list["Segment"] = field(default_factory=list)
+    junction: Callable = None
+    expression: expression = None
+    string: str = ""
 
 
 class Odata:
@@ -39,6 +53,9 @@ class Odata:
     ):
         self.model = model
         self.query = session.query(self.model)
+        self.paren_depth = 0
+        self.filter_string = ""
+        self.filter_string_iterator = None
         self.odata_filters = [
             OdataFilter(
                 re.compile(r"contains\(([^,]+),[\'\"]([^\'\"]*)[\'\"]\)"),
@@ -81,13 +98,15 @@ class Odata:
                 self._parse_le,
             ),
             OdataFilter(
-                re.compile(r"(\S+)\s+in\s+\(([^)]*)\)"),
+                re.compile(r"(\S+)\s+in\s*\(([^)]*)\)"),
                 self._parse_in,
             ),
         ]
-        if filters := odata_parameters.get("filter"):
-            logger.info(f"Parsing filter string [{filters}]")
-            self._filter_parser(filters)
+        if filter_string := odata_parameters.get("filter"):
+            logger.info(f"Parsing filter string [{filter_string}]")
+            self.filter_string = filter_string
+            self.filter_string_iterator = enumerate(self.filter_string)
+            self._filter_parser()
         if (orderby := odata_parameters.get("orderby", default_orderby)) is not None:
             logger.info(f"Parsing orderby string [{orderby}]")
             self._orderby_parser(orderby)
@@ -154,15 +173,131 @@ class Odata:
         field = self.get_field(orderby_strs[0])  # ensure field is valid and exists
         self.query = self.query.order_by(getattr(field, direction)())
 
-    @staticmethod
-    def _tokenize_filter_string(filter_string: str) -> str:
+    # def _tokenize_filter_string(self, filter_string: str) -> str:
+    #     """Validate parens in filter string and convert and/or operators into more parseable forms."""  # noqa
+    #     in_quotes = ""
+    #     paren_depth = 0
+    #     skipping = 0
+    #     filter_function = False
+    #     altered_filter_string = ""
+    #
+    #     def _is_filter_function():
+    #         """Determine whether paren belongs to filter function or not."""
+    #         try:
+    #             # must search from shortest to longest to avoid missing on index error
+    #             if filter_string[index - 8 : index] in ("contains", "endswith"):
+    #                 return True
+    #             if filter_string[index - 10 : index] == "startswith":
+    #                 return True
+    #         except IndexError:
+    #             return False
+    #         return False
+    #
+    #     for index, char in enumerate(filter_string):
+    #         altered_char = char
+    #         if skipping > 0:
+    #             skipping -= 1
+    #             continue
+    #         if (in_quotes and char == in_quotes) or (
+    #             not in_quotes and char in ("'", '"')
+    #         ):
+    #             in_quotes = (
+    #                 "" if in_quotes else char
+    #             )  # only reset to false if same quote type
+    #         elif not in_quotes and char == "(":
+    #             if not (filter_function := _is_filter_function()):
+    #                 paren_depth += 1
+    #                 if paren_depth > self.max_paren_depth:
+    #                     self.max_paren_depth = paren_depth
+    #                 altered_char = f"[_{paren_depth}(_]"
+    #         elif not in_quotes and char == ")":
+    #             if filter_function:
+    #                 filter_function = False
+    #             else:
+    #                 altered_char = f"[_{paren_depth})_]"
+    #                 paren_depth -= 1
+    #         elif not in_quotes and filter_string[index : index + 5] == " and ":
+    #             altered_char = "[_AND_]"
+    #             skipping = 4
+    #         elif not in_quotes and filter_string[index : index + 4] == " or ":
+    #             altered_char = "[_OR_]"
+    #             skipping = 3
+    #         altered_filter_string += altered_char
+    #     if in_quotes:
+    #         raise BadRequest(
+    #             description="Quotes in filter string are mismatched.",
+    #         )
+    #     if paren_depth != 0 or filter_function:
+    #         raise BadRequest(description="Parentheses in filter string are mismatched.")
+    #     return "[_0(_]" + altered_filter_string + "[_0)_]"
+
+    def _parse_expression(self, expression_str: str) -> expression:
+        """Parse SQLAlchemy expression from string."""
+        for odata_filter in self.odata_filters:
+            if match := re.search(odata_filter.regex, expression_str):
+                return odata_filter.func(match)
+        raise BadRequest(
+            description=f"No available filter matches segment {expression_str}",
+        )
+
+    def _parse_segments(self, last_junction=and_) -> list["Segment"]:
         """Validate parens in filter string and convert and/or operators into more parseable forms."""  # noqa
         in_quotes = ""
-        paren_depth = 0
         skipping = 0
-        altered_filter_string = ""
-        for index, char in enumerate(filter_string):
-            altered_char = char
+        filter_function = False
+        expression_str = ""
+        segments: list["Segment"] = [
+            Segment(
+                depth=self.paren_depth,
+                junction=last_junction,
+                expression=None,
+                string="",
+            )
+        ]
+        last_junction = None
+
+        def _is_filter_function():
+            """Determine whether paren belongs to filter function or not."""
+            nonlocal index
+            try:
+                # must search from shortest to longest to avoid missing on index error
+                if (
+                    self.filter_string[index - 2 : index] == "in"
+                    or self.filter_string[index - 3 : index] == "in "
+                    or self.filter_string[index - 8 : index] in ("contains", "endswith")
+                    or self.filter_string[index - 10 : index] == "startswith"
+                ):
+                    return True
+            except IndexError:
+                return False
+            return False
+
+        def _close_expression():
+            """Add expression to segment if not empty and reset."""
+            nonlocal expression_str
+            if expression_str:
+                segments.append(
+                    Segment(
+                        depth=self.paren_depth,
+                        junction=last_junction,
+                        expression=self._parse_expression(expression_str),
+                        string=expression_str,
+                    )
+                )
+            expression_str = ""
+
+        def _validate_clean_segment():
+            """Check for dangling parens or quotes and error if found."""
+            if in_quotes:
+                raise BadRequest(
+                    description="Quotes in filter string are mismatched.",
+                )
+            if self.paren_depth != segments[0].depth or filter_function:
+                raise BadRequest(
+                    description="Parentheses in filter string are mismatched."
+                )
+
+        for index, char in self.filter_string_iterator:
             if skipping > 0:
                 skipping -= 1
                 continue
@@ -173,55 +308,87 @@ class Odata:
                     "" if in_quotes else char
                 )  # only reset to false if same quote type
             elif not in_quotes and char == "(":
-                paren_depth += 1
-                # altered_char = '[_(_]'
+                if not (filter_function := _is_filter_function()):
+                    if segments[-1].segments:
+                        segments.append(
+                            Segment(
+                                depth=self.paren_depth,
+                                junction=last_junction,
+                                expression=None,
+                                string="",
+                            )
+                        )
+                    self.paren_depth += 1
+                    segments[-1].segments = self._parse_segments(last_junction)
+                    continue
             elif not in_quotes and char == ")":
-                paren_depth -= 1
-                # altered_char = '[_)_]'
-            elif not in_quotes and filter_string[index : index + 5] == " and ":
-                altered_char = " [_AND_] "
+                if filter_function:
+                    filter_function = False
+                else:
+                    _close_expression()
+                    _validate_clean_segment()
+                    self.paren_depth -= 1
+                    return segments
+            elif not in_quotes and self.filter_string[index : index + 5] == " and ":
+                _close_expression()
+                last_junction = and_
                 skipping = 4
-            elif not in_quotes and filter_string[index : index + 4] == " or ":
-                altered_char = " [_OR_] "
+                continue
+            elif not in_quotes and self.filter_string[index : index + 4] == " or ":
+                _close_expression()
+                last_junction = or_
                 skipping = 3
-            altered_filter_string += altered_char
-        if in_quotes:
-            raise BadRequest(
-                description="Quotes in filter string are mismatched.",
-            )
-        if paren_depth != 0:
-            raise BadRequest(description="Parentheses in filter string are mismatched.")
-        return altered_filter_string
+                continue
+            expression_str += char
+        _validate_clean_segment()
+        if expression_str:
+            _close_expression()
+        return segments
 
-    def _filter_parser(self, filter_string: str):
-        filter_expressions = []
-        filter_string = self._tokenize_filter_string(filter_string)
-        if " [_AND_] " in filter_string and " [_OR_] " in filter_string:
-            raise BadRequest(
-                description="Currently, AND and OR cannot be mixed in filters."
-            )
-        elif " [_OR_] " in filter_string:
-            operator = or_
-            segments = filter_string.split(" [_OR_] ")
-        else:
-            operator = and_
-            segments = filter_string.split(" [_AND_] ")
+    def _build_filters(self, segments: list["Segment"]) -> BooleanClauseList:
+        """Build SQLAlchemy filters from parsed segments."""
+        filters = []
+        expressions = []
+        junction = None
         for segment in segments:
-            segment = segment.strip()
-            filter_found = False
-            for odata_filter in self.odata_filters:
-                if match := re.search(odata_filter.regex, segment):
-                    filter_expressions.append(odata_filter.func(match))
-                    filter_found = True
-                    break
-            if not filter_found:
-                raise BadRequest(
-                    description=f"No available filter matches segment {segment}",
-                )
-        self.query = self.query.filter(
-            operator(
-                *filter_expressions,
+            if segment.expression is not None:
+                if junction is None:
+                    junction = segment.junction
+                elif junction != segment.junction and expressions:
+                    filters.append(
+                        junction(
+                            *expressions,
+                        )
+                    )
+                    junction = segment.junction
+                    expressions = []
+                expressions.append(segment.expression)
+            if segment.segments:
+                expressions.append(self._build_filters(segment.segments))
+        if expressions:
+            outer_junction = (
+                segments[-1].junction if segments[-1].junction is not None else and_
             )
+            filters.append(
+                outer_junction(
+                    *expressions,
+                )
+            )
+        outer_junction = (
+            segments[0].junction if segments[0].junction is not None else and_
+        )
+        return outer_junction(
+            *filters,
+        )
+
+    def _filter_parser(self):
+        logger.info(f"{self.filter_string=}")
+        segments = self._parse_segments()
+        logger.info(f"{segments=}")
+        filters = self._build_filters(segments)
+        self.query = self.query.filter(filters)
+        logger.info(
+            self.query.statement.compile(compile_kwargs={"literal_binds": True})
         )
 
     def _parse_contains(self, match: re.Match) -> expression:

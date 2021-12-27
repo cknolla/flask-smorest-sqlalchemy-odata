@@ -24,7 +24,7 @@ def app():
         user1 = models.User(
             id=1,
             username="user1",
-            logins=2,
+            logins=3,
             note="primary admin",
             created=datetime.strptime("2020-01-01T01:01:00", dt_format),
         )

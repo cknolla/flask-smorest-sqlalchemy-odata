@@ -29,7 +29,7 @@ from tests.utils import parse_response
         ('username in ("user2", "odd")', {4, 2}),
     ],
 )
-def test_user_filters_succeeds(client: FlaskClient, filters, ids):
+def test_user_filters_succeeds(client: FlaskClient, filters: str, ids: set[int]):
     response = client.get(
         "/user",
         query_string={
@@ -45,8 +45,6 @@ def test_user_filters_succeeds(client: FlaskClient, filters, ids):
     "filters",
     [
         "(logins ge 51",
-        "logins ge 51)",
-        "(logins ge 51))",
         "logins ge 51 and (logins le 31",
     ],
 )
@@ -83,16 +81,56 @@ def test_mismatched_quotes_fails(client: FlaskClient, filters: str):
     assert body["message"] == "Quotes in filter string are mismatched."
 
 
-def test_combined_and_or_fails(client: FlaskClient):
+@pytest.mark.parametrize(
+    "filters, ids",
+    [
+        (
+            "username ne 'user1' and (id in (4) or username eq 'user3') and "
+            "(logins gt 99 and logins lt 101)",
+            set(),
+        ),
+        (
+            "username ne 'user1' and (id in(4) or username eq 'user3') and "
+            "(logins gt 99 or logins lt 101)",
+            {3, 4},
+        ),
+        (
+            "((username ne 'user1' and username ne 'user3') and "
+            "(logins gt 99 and logins lt 101)) or "
+            "(isActive eq true and username in ('user2','odd') and id eq 2)",
+            {2},
+        ),
+        (
+            "(username eq 'user2' and logins eq 100 and isActive eq false) or ("
+            "logins gt 1 and username eq 'user3'"
+            ") or contains(note,'backup') or ("
+            "logins gt 1000 and username eq 'user4'"
+            ")",
+            {2, 3},
+        ),
+        (
+            "("
+            "username eq 'user1' and ("
+            "logins gt 1 or username ne '(user2'"
+            ") and contains(note,'primary') and ("
+            "logins gt 2 or username ne 'user2)'"
+            ")"
+            ")",
+            {1},
+        ),
+    ],
+)
+def test_complex_filter_succeeds(client: FlaskClient, filters: str, ids: set[int]):
+    """Really try to strain the segment and filter logic with lots of depth and and/or swaps."""
     response = client.get(
         "/user",
         query_string={
-            "filter": "username eq 'user1' and logins gt 1 or username eq 'user2'",
+            "filter": filters,
         },
     )
-    body = parse_response(response)
-    assert response.status_code == HTTPStatus.BAD_REQUEST
-    assert body["message"] == "Currently, AND and OR cannot be mixed in filters."
+    users = parse_response(response)
+    assert response.status_code == HTTPStatus.OK
+    assert {user["id"] for user in users} == ids
 
 
 @pytest.mark.parametrize(

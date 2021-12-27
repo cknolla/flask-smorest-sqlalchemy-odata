@@ -5,3 +5,6 @@ blackformat:
 
 lintcheck:
 	flake8
+
+package:
+	python setup.py sdist bdist_wheel
