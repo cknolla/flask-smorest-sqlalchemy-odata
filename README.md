@@ -80,10 +80,12 @@ Examples:
 - `/user?orderby=supervisor/username`
 
 ### AND / OR
-Filters can be combined with either `and` or `or`. Currently, order of operations cannot be controlled if they are mixed together.
+Filters can be combined with either `and` or `or`.
+Nested filtering with parens is allowed.
 
 Examples:
 
 - `isActive eq true or isActive eq flase`
 - `createdTime ge 2021-01-01T00:00:00 and createdTime le 2021-02-01T23:59:59 and userId eq 1`
+- `(username eq 'user2' and logins eq 100 and isActive eq false) or (logins gt 1 and username eq 'user3') or contains(note,'backup') or (logins gt 1000 and username eq 'user4' and supervisor/id eq 1)`
 
