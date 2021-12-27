@@ -172,64 +172,6 @@ class Odata:
         field = self.get_field(orderby_strs[0])  # ensure field is valid and exists
         self.query = self.query.order_by(getattr(field, direction)())
 
-    # def _tokenize_filter_string(self, filter_string: str) -> str:
-    #     """Validate parens in filter string and convert and/or operators into more parseable forms."""  # noqa
-    #     in_quotes = ""
-    #     paren_depth = 0
-    #     skipping = 0
-    #     filter_function = False
-    #     altered_filter_string = ""
-    #
-    #     def _is_filter_function():
-    #         """Determine whether paren belongs to filter function or not."""
-    #         try:
-    #             # must search from shortest to longest to avoid missing on index error
-    #             if filter_string[index - 8 : index] in ("contains", "endswith"):
-    #                 return True
-    #             if filter_string[index - 10 : index] == "startswith":
-    #                 return True
-    #         except IndexError:
-    #             return False
-    #         return False
-    #
-    #     for index, char in enumerate(filter_string):
-    #         altered_char = char
-    #         if skipping > 0:
-    #             skipping -= 1
-    #             continue
-    #         if (in_quotes and char == in_quotes) or (
-    #             not in_quotes and char in ("'", '"')
-    #         ):
-    #             in_quotes = (
-    #                 "" if in_quotes else char
-    #             )  # only reset to false if same quote type
-    #         elif not in_quotes and char == "(":
-    #             if not (filter_function := _is_filter_function()):
-    #                 paren_depth += 1
-    #                 if paren_depth > self.max_paren_depth:
-    #                     self.max_paren_depth = paren_depth
-    #                 altered_char = f"[_{paren_depth}(_]"
-    #         elif not in_quotes and char == ")":
-    #             if filter_function:
-    #                 filter_function = False
-    #             else:
-    #                 altered_char = f"[_{paren_depth})_]"
-    #                 paren_depth -= 1
-    #         elif not in_quotes and filter_string[index : index + 5] == " and ":
-    #             altered_char = "[_AND_]"
-    #             skipping = 4
-    #         elif not in_quotes and filter_string[index : index + 4] == " or ":
-    #             altered_char = "[_OR_]"
-    #             skipping = 3
-    #         altered_filter_string += altered_char
-    #     if in_quotes:
-    #         raise BadRequest(
-    #             description="Quotes in filter string are mismatched.",
-    #         )
-    #     if paren_depth != 0 or filter_function:
-    #         raise BadRequest(description="Parentheses in filter string are mismatched.")
-    #     return "[_0(_]" + altered_filter_string + "[_0)_]"
-
     def _parse_expression(self, expression_str: str) -> expression:
         """Parse SQLAlchemy expression from string."""
         for odata_filter in self.odata_filters:
