@@ -307,8 +307,6 @@ class Odata:
                     junction = segment.junction
                     expressions = []
                 expressions.append(segment.expression)
-            else:
-                outer_junction = segment.junction
             if segment.segments:
                 inner_filters, inner_junction = self._build_filters(segment.segments)
                 if (
