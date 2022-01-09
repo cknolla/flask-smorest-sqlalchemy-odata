@@ -109,6 +109,9 @@ class Odata:
         if (orderby := odata_parameters.get("orderby", default_orderby)) is not None:
             logger.info(f"Parsing orderby string [{orderby}]")
             self._orderby_parser(orderby)
+        logger.info(
+            f"Final query:\n{self.query.statement.compile(compile_kwargs={'literal_binds': True})}"
+        )
 
     @staticmethod
     def _parse_value(field: InstrumentedAttribute, value_string: str):
@@ -122,7 +125,7 @@ class Odata:
                 )
         return value_string
 
-    def get_field(self, field_input: str) -> InstrumentedAttribute:
+    def _get_field(self, field_input: str) -> InstrumentedAttribute:
         """Clean raw user input and return likely field name."""
         clean_fields = [
             stringcase.snakecase(field) for field in field_input.strip().split("/")
@@ -169,16 +172,21 @@ class Odata:
                 raise BadRequest(
                     description="orderby direction can only be [asc] or [desc]",
                 )
-        field = self.get_field(orderby_strs[0])  # ensure field is valid and exists
+        field = self._get_field(orderby_strs[0])  # ensure field is valid and exists
         self.query = self.query.order_by(getattr(field, direction)())
+        logger.debug(
+            "Query after orderby:\n"
+            f"{self.query.statement.compile(compile_kwargs={'literal_binds': True})}"
+        )
 
-    def _parse_expression(self, expression_str: str) -> expression:
-        """Parse SQLAlchemy expression from string."""
-        for odata_filter in self.odata_filters:
-            if match := re.search(odata_filter.regex, expression_str):
-                return odata_filter.func(match)
-        raise BadRequest(
-            description=f"No available filter matches segment {expression_str}",
+    def _filter_parser(self):
+        segments = self._parse_segments()
+        logger.info(f"{segments=}")
+        filters = self._build_filters(segments)[0]
+        self.query = self.query.filter(*filters)
+        logger.debug(
+            "Query after filter:\n"
+            f"{self.query.statement.compile(compile_kwargs={'literal_binds': True})}"
         )
 
     def _parse_segments(self, last_junction=and_) -> list["Segment"]:
@@ -341,19 +349,18 @@ class Odata:
             )
         return filters, outer_junction
 
-    def _filter_parser(self):
-        logger.info(f"{self.filter_string=}")
-        segments = self._parse_segments()
-        logger.info(f"{segments=}")
-        filters = self._build_filters(segments)[0]
-        self.query = self.query.filter(*filters)
-        logger.info(
-            self.query.statement.compile(compile_kwargs={"literal_binds": True})
+    def _parse_expression(self, expression_str: str) -> expression:
+        """Parse SQLAlchemy expression from string."""
+        for odata_filter in self.odata_filters:
+            if match := re.search(odata_filter.regex, expression_str):
+                return odata_filter.func(match)
+        raise BadRequest(
+            description=f"No available filter matches segment {expression_str}",
         )
 
     def _parse_contains(self, match: re.Match) -> expression:
         # self.query can get modified within get_field, so don't embed that call within filter
-        return self.get_field(match.group(1)).contains(match.group(2))
+        return self._get_field(match.group(1)).contains(match.group(2))
 
     def _parse_eqbool(self, match: re.Match) -> expression:
         operator = "__eq__" if match.group(2) == "eq" else "__ne__"
@@ -362,7 +369,7 @@ class Odata:
             "true": True,
             "false": False,
         }[match.group(3)]
-        field = self.get_field(match.group(1))  # get the field to filter by
+        field = self._get_field(match.group(1))  # get the field to filter by
         return getattr(  # get the operator function 'is_' or 'isnot' of the column
             field,
             operator,
@@ -371,43 +378,43 @@ class Odata:
         )  # example: User.username.is_(None)
 
     def _parse_eq(self, match: re.Match) -> expression:
-        field = self.get_field(match.group(1))
+        field = self._get_field(match.group(1))
         parsed_value = self._parse_value(field, match.group(2))
         return field == parsed_value
 
     def _parse_ne(self, match: re.Match):
-        field = self.get_field(match.group(1))
+        field = self._get_field(match.group(1))
         parsed_value = self._parse_value(field, match.group(2))
         return field != parsed_value
 
     def _parse_startswith(self, match: re.Match):
-        return self.get_field(match.group(1)).startswith(match.group(2))
+        return self._get_field(match.group(1)).startswith(match.group(2))
 
     def _parse_endswith(self, match: re.Match):
-        return self.get_field(match.group(1)).endswith(match.group(2))
+        return self._get_field(match.group(1)).endswith(match.group(2))
 
     def _parse_gt(self, match: re.Match):
-        field = self.get_field(match.group(1))
+        field = self._get_field(match.group(1))
         parsed_value = self._parse_value(field, match.group(2))
         return field > parsed_value
 
     def _parse_lt(self, match: re.Match):
-        field = self.get_field(match.group(1))
+        field = self._get_field(match.group(1))
         parsed_value = self._parse_value(field, match.group(2))
         return field < parsed_value
 
     def _parse_ge(self, match: re.Match):
-        field = self.get_field(match.group(1))
+        field = self._get_field(match.group(1))
         parsed_value = self._parse_value(field, match.group(2))
         return field >= parsed_value
 
     def _parse_le(self, match: re.Match):
-        field = self.get_field(match.group(1))
+        field = self._get_field(match.group(1))
         parsed_value = self._parse_value(field, match.group(2))
         return field <= parsed_value
 
     def _parse_in(self, match: re.Match):
-        field = self.get_field(match.group(1))
+        field = self._get_field(match.group(1))
         values = [
             self._parse_value(field, value.strip(" '\""))
             for value in match.group(2).split(",")
