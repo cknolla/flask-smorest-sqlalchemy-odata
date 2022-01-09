@@ -29,7 +29,7 @@ resources = Blueprint(
     description='root resources',
 )
 
-@resources.route('/user')
+@resources.route('/users')
 class User(MethodView):
 
     @resources.response(HTTPStatus.OK, schemas.User(many=True))
@@ -46,7 +46,7 @@ It will also add docs so the params will appear in Swagger/Redoc.
 ## Features
 
 ### Filter operators
-Multiple filter operations can be joined with 'and'. 'or' functionality still work in progress. 
+Multiple filter operations can be joined with `and` and `or` 
 
 |Operator Name|Syntax|Examples|
 |---|---|---|
@@ -66,21 +66,26 @@ It is possible to filter by a joined property, even if that property isn't retur
 Use a forward-slash (/) to indicate a join.
 
 For example:
-`/user?filter=roles/name eq "admin"` would return all users that have a related role with name 'admin'.
+`/users?filter=roles/name eq "admin"` would return all users that have a related role with name 'admin'.
 
 Works for one-to-many and many-to-many.
+
+To search for empty or non-empty relations, use `eq null` or `ne null` respectively.
+For example, to filter for users with no roles assigned:
+`/users?filter=roles eq null`
 
 ### Ordering
 Use the `orderby` query parameter to sort by a top-level property or joined property, ascending or descending.
 
 Examples:
 
-- `/user?orderby=id`
-- `/user?orderby=id desc`
-- `/user?orderby=supervisor/username`
+- `/users?orderby=id`
+- `/users?orderby=id desc`
+- `/users?orderby=supervisor/username`
+- `/users?filter=isActive eq true&orderby=logins desc`
 
 ### AND / OR
-Filters can be combined with either `and` or `or`.
+Filters can be combined with `and` and `or`.
 Nested filtering with parens is allowed.
 
 Examples:

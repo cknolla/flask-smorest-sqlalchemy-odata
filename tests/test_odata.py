@@ -12,6 +12,7 @@ from tests.utils import parse_response
         ("usernameSupervisorId eq 'user31'", {3}),
         ("isSupervisor eq true", {1, 2, 4}),
         ("contains(username,'user')", {1, 2, 3}),
+        ("contains(username, 'user')", {1, 2, 3}),
         ("id eq 1", {1}),
         ("isActive eq true", {1, 3, 4}),
         ("isActive eq false", {2}),
@@ -27,11 +28,13 @@ from tests.utils import parse_response
         ("created lt 2021-01-01T04:00:00", {1, 2}),
         ("id in (1,3)", {1, 3}),
         ('username in ("user2", "odd")', {4, 2}),
+        ("roles eq null", {4}),
+        ("roles ne null", {1, 2, 3}),
     ],
 )
 def test_user_filters_succeeds(client: FlaskClient, filters: str, ids: set[int]):
     response = client.get(
-        "/user",
+        "/users",
         query_string={
             "filter": filters,
         },
@@ -50,7 +53,7 @@ def test_user_filters_succeeds(client: FlaskClient, filters: str, ids: set[int])
 )
 def test_mismatched_parens_fails(client: FlaskClient, filters: str):
     response = client.get(
-        "/user",
+        "/users",
         query_string={
             "filter": filters,
         },
@@ -71,7 +74,7 @@ def test_mismatched_parens_fails(client: FlaskClient, filters: str):
 )
 def test_mismatched_quotes_fails(client: FlaskClient, filters: str):
     response = client.get(
-        "/user",
+        "/users",
         query_string={
             "filter": filters,
         },
@@ -84,7 +87,10 @@ def test_mismatched_quotes_fails(client: FlaskClient, filters: str):
 @pytest.mark.parametrize(
     "filters, ids",
     [
-        ("isActive eq false or (startswith(username,'od') and id eq 4)", {2, 4}),
+        (
+            "isActive eq false or (startswith(username,'od') and id eq 4)",
+            {2, 4},
+        ),
         (
             "username ne 'user1' and (id in (4) or username eq 'user3') and "
             "(logins gt 99 and logins lt 101)",
@@ -124,7 +130,7 @@ def test_mismatched_quotes_fails(client: FlaskClient, filters: str):
 def test_complex_filter_succeeds(client: FlaskClient, filters: str, ids: set[int]):
     """Really try to strain the segment and filter logic with lots of depth and and/or swaps."""
     response = client.get(
-        "/user",
+        "/users",
         query_string={
             "filter": filters,
         },
@@ -144,7 +150,7 @@ def test_complex_filter_succeeds(client: FlaskClient, filters: str, ids: set[int
 )
 def test_orderby_succeeds(client: FlaskClient, orderby: str, ids: list[int]):
     response = client.get(
-        "/user",
+        "/users",
         query_string={
             "orderby": orderby,
         },
@@ -162,7 +168,7 @@ def test_orderby_succeeds(client: FlaskClient, orderby: str, ids: list[int]):
 )
 def test_orderby_fails(client: FlaskClient, orderby: str, err_segment: str):
     response = client.get(
-        "/user",
+        "/users",
         query_string={
             "orderby": orderby,
         },
@@ -175,9 +181,9 @@ def test_orderby_fails(client: FlaskClient, orderby: str, err_segment: str):
 @pytest.mark.parametrize(
     "filters, orderby, page_size, page, ids",
     [
-        ("endswith(body,'text')", "id", 1, 1, [1]),
-        ("endswith(body,'text')", "id", 1, 2, [3]),
-        ("endswith(body,'text')", "id", 2, 1, [1, 3]),
+        ("endswith(body, 'text')", "id", 1, 1, [1]),
+        ("endswith(body, 'text')", "id", 1, 2, [3]),
+        ("endswith(body, 'text')", "id", 2, 1, [1, 3]),
     ],
 )
 def test_with_paging_succeeds(
@@ -189,7 +195,7 @@ def test_with_paging_succeeds(
     ids: list[int],
 ):
     response = client.get(
-        "/comment",
+        "/comments",
         query_string={
             "filter": filters,
             "orderby": orderby,
@@ -217,7 +223,7 @@ def test_joined_filter_succeeds(
     ids: list[int],
 ):
     response = client.get(
-        "/comment",
+        "/comments",
         query_string={
             "filter": filters,
         },
@@ -244,7 +250,7 @@ def test_joined_with_invalid_property_fails(
     err_segment: str,
 ):
     response = client.get(
-        "/comment",
+        "/comments",
         query_string={
             "filter": filters,
         },
@@ -267,7 +273,7 @@ def test_and_filter_succeeds(
     ids: set[int],
 ):
     response = client.get(
-        "/user",
+        "/users",
         query_string={
             "filter": filters,
         },
@@ -293,7 +299,7 @@ def test_or_filter_succeeds(
     ids: set[int],
 ):
     response = client.get(
-        "/user",
+        "/users",
         query_string={
             "filter": filters,
         },
@@ -305,8 +311,21 @@ def test_or_filter_succeeds(
 
 def test_default_orderby_succeeds(client: FlaskClient):
     response = client.get(
-        "/role",
+        "/roles",
     )
     roles = parse_response(response)
     assert response.status_code == HTTPStatus.OK
     assert [role["id"] for role in roles] == [2, 1]
+
+
+def test_combined_filter_and_orderby_succeeds(client: FlaskClient):
+    response = client.get(
+        "/users",
+        query_string={
+            "filter": "isActive eq true",
+            "orderby": "logins desc",
+        },
+    )
+    users = parse_response(response)
+    assert response.status_code == HTTPStatus.OK
+    assert [user["id"] for user in users] == [4, 3, 1]

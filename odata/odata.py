@@ -57,7 +57,7 @@ class Odata:
         self.filter_string_iterator = None
         self.odata_filters = [
             OdataFilter(
-                re.compile(r"contains\(([^,]+),[\'\"]([^\'\"]*)[\'\"]\)"),
+                re.compile(r"contains\(([^,]+),\s*[\'\"]([^\'\"]*)[\'\"]\)"),
                 self._parse_contains,
             ),
             OdataFilter(

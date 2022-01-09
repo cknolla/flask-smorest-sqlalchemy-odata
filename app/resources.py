@@ -27,7 +27,7 @@ class Create(MethodView):
         }
 
 
-@resources.route("/user")
+@resources.route("/users")
 class User(MethodView):
     @resources.response(HTTPStatus.OK, schemas.User(many=True))
     @resources.paginate(CursorPage)
@@ -36,7 +36,7 @@ class User(MethodView):
         return models.User
 
 
-@resources.route("/comment")
+@resources.route("/comments")
 class Comment(MethodView):
     @resources.response(HTTPStatus.OK, schemas.Comment(many=True))
     @resources.paginate(CursorPage)
@@ -45,7 +45,7 @@ class Comment(MethodView):
         return models.Comment
 
 
-@resources.route("/role")
+@resources.route("/roles")
 class Role(MethodView):
     @resources.response(HTTPStatus.OK, schemas.Role(many=True))
     @resources.paginate(CursorPage)
