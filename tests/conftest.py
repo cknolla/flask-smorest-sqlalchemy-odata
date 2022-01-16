@@ -17,6 +17,7 @@ from app import create_app, db, models  # noqa
 @pytest.fixture(scope="module")
 def app():
     dt_format = "%Y-%m-%dT%H:%M:%S"
+    date_format = "%Y-%m-%d"
     app = create_app(is_test=True)
     with app.app_context():
         db.drop_all()
@@ -26,6 +27,7 @@ def app():
             username="user1",
             logins=3,
             note="primary admin",
+            start_date=datetime.strptime("2020-01-01", date_format),
             created=datetime.strptime("2020-01-01T01:01:00", dt_format),
         )
         user2 = models.User(
@@ -34,12 +36,14 @@ def app():
             is_active=False,
             logins=100,
             note="backup admin",
+            start_date=datetime.strptime("2020-06-01", date_format),
             created=datetime.strptime("2021-01-01T01:01:00", dt_format),
         )
         user3 = models.User(
             id=3,
             username="user3",
             logins=51,
+            start_date=datetime.strptime("2021-02-03", date_format),
             created=datetime.strptime("2021-01-01T06:01:00", dt_format),
             supervisor=user1,
         )

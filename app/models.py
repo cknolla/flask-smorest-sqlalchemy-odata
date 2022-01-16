@@ -10,6 +10,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     select,
+    Date,
 )
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, backref
@@ -51,6 +52,7 @@ class User(Base):
         ForeignKey("users.id"),
         nullable=True,
     )
+    start_date = Column(Date)
     created = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     comments = relationship("Comment", back_populates="user")

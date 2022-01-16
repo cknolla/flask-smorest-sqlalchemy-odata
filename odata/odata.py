@@ -27,6 +27,7 @@ logger = logging.getLogger("app." + __name__)
 
 OdataFilter = namedtuple("OdataFilter", ["regex", "func"])
 _DEFAULT_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
+_DEFAULT_DATE_FORMAT = "%Y-%m-%d"
 
 
 @dataclass
@@ -121,7 +122,7 @@ class Odata:
                 return datetime.strptime(value_string, _DEFAULT_DATETIME_FORMAT)
             elif isinstance(field_type, Date):
                 return datetime.date(
-                    datetime.strptime(value_string, _DEFAULT_DATETIME_FORMAT)
+                    datetime.strptime(value_string, _DEFAULT_DATE_FORMAT)
                 )
         return value_string
 
@@ -480,6 +481,7 @@ class OdataSchema(ma.Schema):
 
     class Meta:
         datetimeformat = _DEFAULT_DATETIME_FORMAT
+        dateformat = _DEFAULT_DATE_FORMAT
         ordered = True
         unknown = ma.EXCLUDE
 

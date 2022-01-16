@@ -24,6 +24,7 @@ from tests.utils import parse_response
         ("logins gt 51", {2, 4}),
         ("logins ge 51", {2, 3, 4}),
         ("logins le 51", {1, 3}),
+        ("startDate lt 2021-01-01", {1, 2}),
         ("created gt 2020-05-01T01:00:00", {2, 3, 4}),
         ("created lt 2021-01-01T04:00:00", {1, 2}),
         ("id in (1,3)", {1, 3}),
@@ -263,6 +264,7 @@ def test_joined_with_invalid_property_fails(
 @pytest.mark.parametrize(
     "filters, ids",
     [
+        ("startDate ge 2020-01-01 and startDate le 2020-06-01", {1, 2}),
         ('username eq "user1" and logins lt 5', {1}),
         ('startswith(username,"user") and roles/name eq "operator"', {1, 3}),
     ],
