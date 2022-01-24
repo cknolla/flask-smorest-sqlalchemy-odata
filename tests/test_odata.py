@@ -161,6 +161,15 @@ def test_orderby_succeeds(client: FlaskClient, orderby: str, ids: list[int]):
     assert [user["id"] for user in users] == ids
 
 
+def test_empty_orderby_orders_by_pk_succeeds(client: FlaskClient):
+    response = client.get(
+        "/users",
+    )
+    users = parse_response(response)
+    assert response.status_code == HTTPStatus.OK
+    assert [user["id"] for user in users] == [1, 2, 3, 4]
+
+
 @pytest.mark.parametrize(
     "orderby, err_segment",
     [

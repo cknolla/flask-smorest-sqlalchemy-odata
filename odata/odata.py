@@ -18,7 +18,7 @@ from sqlalchemy.sql import expression
 from sqlalchemy.sql.elements import BooleanClauseList
 from webargs.flaskparser import FlaskParser
 from werkzeug.exceptions import BadRequest
-from sqlalchemy import DateTime, Date, and_, or_
+from sqlalchemy import DateTime, Date, and_, or_, inspect
 from sqlalchemy.orm import Session, RelationshipProperty, InstrumentedAttribute, aliased
 import marshmallow as ma
 
@@ -107,7 +107,11 @@ class Odata:
             self.filter_string = filter_string
             self.filter_string_iterator = enumerate(self.filter_string)
             self._filter_parser()
-        if (orderby := odata_parameters.get("orderby", default_orderby)) is not None:
+        orderby = odata_parameters.get("orderby", default_orderby)
+        if orderby is None and (primary_keys := inspect(model).primary_key):
+            # order by first primary key if none passed. necessary for mssql paging
+            orderby = primary_keys[0].key
+        if orderby:
             logger.info(f"Parsing orderby string [{orderby}]")
             self._orderby_parser(orderby)
         logger.info(
