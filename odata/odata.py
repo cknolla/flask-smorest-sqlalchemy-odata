@@ -103,7 +103,7 @@ class Odata:
             ),
         ]
         if filter_string := odata_parameters.get("filter"):
-            logger.info(f"Parsing filter string [{filter_string}]")
+            logger.debug(f"Parsing filter string [{filter_string}]")
             self.filter_string = filter_string
             self.filter_string_iterator = enumerate(self.filter_string)
             self._filter_parser()
@@ -112,9 +112,9 @@ class Odata:
             # order by first primary key if none passed. necessary for mssql paging
             orderby = primary_keys[0].key
         if orderby:
-            logger.info(f"Parsing orderby string [{orderby}]")
+            logger.debug(f"Parsing orderby string [{orderby}]")
             self._orderby_parser(orderby)
-        logger.info(
+        logger.debug(
             f"Final query:\n{self.query.statement.compile(compile_kwargs={'literal_binds': True})}"
         )
 
@@ -186,7 +186,7 @@ class Odata:
 
     def _filter_parser(self):
         segments = self._parse_segments()
-        logger.info(f"{segments=}")
+        logger.debug(f"{segments=}")
         filters = self._build_filters(segments)[0]
         self.query = self.query.filter(*filters)
         logger.debug(
