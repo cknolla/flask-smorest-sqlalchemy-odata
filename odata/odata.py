@@ -27,6 +27,7 @@ logger = logging.getLogger("app." + __name__)
 
 OdataFilter = namedtuple("OdataFilter", ["regex", "func"])
 _DEFAULT_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
+_MILLISECOND_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 _DEFAULT_DATE_FORMAT = "%Y-%m-%d"
 
 
@@ -123,7 +124,10 @@ class Odata:
         if hasattr(field, "property"):
             field_type = field.property.columns[0].type
             if isinstance(field_type, DateTime):
-                return datetime.strptime(value_string, _DEFAULT_DATETIME_FORMAT)
+                try:
+                    return datetime.strptime(value_string, _DEFAULT_DATETIME_FORMAT)
+                except ValueError:
+                    return datetime.strptime(value_string, _MILLISECOND_DATETIME_FORMAT)
             elif isinstance(field_type, Date):
                 return datetime.date(
                     datetime.strptime(value_string, _DEFAULT_DATE_FORMAT)

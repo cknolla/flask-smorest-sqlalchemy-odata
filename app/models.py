@@ -77,15 +77,7 @@ class User(Base):
     @username_supervisor_id.expression
     def username_supervisor_id(cls) -> expression:
         """Return SQL expression."""
-        return (
-            select(
-                [
-                    cls.username.concat(cls.supervisor_id),
-                ]
-            )
-            .correlate(cls)
-            .as_scalar()
-        )
+        return select(cls.username.concat(cls.supervisor_id)).correlate(cls).as_scalar()
 
 
 class UserRole(Base):
