@@ -124,14 +124,9 @@ class Odata:
         if hasattr(field, "property"):
             field_type = field.property.columns[0].type
             if isinstance(field_type, DateTime):
-                try:
-                    return datetime.strptime(value_string, _DEFAULT_DATETIME_FORMAT)
-                except ValueError:
-                    return datetime.strptime(value_string, _MILLISECOND_DATETIME_FORMAT)
+                return datetime.fromisoformat(value_string)
             elif isinstance(field_type, Date):
-                return datetime.date(
-                    datetime.strptime(value_string, _DEFAULT_DATE_FORMAT)
-                )
+                return datetime.date(datetime.fromisoformat(value_string))
         return value_string
 
     def _get_field(self, field_input: str) -> InstrumentedAttribute:
