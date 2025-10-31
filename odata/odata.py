@@ -158,6 +158,10 @@ class Odata:
                     model = field_class
                     self.query = self.query.outerjoin(field)
             else:
+                if field.expression.type.python_type == bytes:
+                    raise BadRequest(
+                        description=f"Cannot filter bytes-type field {field.key}",
+                    )
                 return field
 
     def _orderby_parser(self, orderby: str):
