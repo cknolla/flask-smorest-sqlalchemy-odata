@@ -3,7 +3,7 @@
 from setuptools import setup
 
 setup(
-    name="flask-smorest-sqlalchemy-odata",
+    name="flask_smorest_sqlalchemy_odata",
     version=open("VERSION").readline().strip(),
     author="Casey Knolla",
     author_email="cknolla@gmail.com",
