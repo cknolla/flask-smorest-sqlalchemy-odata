@@ -90,6 +90,18 @@ def test_mismatched_quotes_fails(client: FlaskClient, filters: str):
     assert body["message"] == "Quotes in filter string are mismatched."
 
 
+def test_bytes_filter_fails(client: FlaskClient):
+    response = client.get(
+        "/users",
+        query_string={
+            "filter": "contains(binary_data,'819')",
+        },
+    )
+    body = parse_response(response)
+    assert response.status_code == HTTPStatus.BAD_REQUEST
+    assert body["message"] == "Cannot filter bytes-type field binary_data"
+
+
 @pytest.mark.parametrize(
     "filters, ids",
     [

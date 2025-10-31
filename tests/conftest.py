@@ -27,6 +27,7 @@ def app():
             username="user1",
             logins=3,
             note="primary admin",
+            binary_data=b"test",
             start_date=datetime.strptime("2020-01-01", date_format),
             created=datetime.strptime("2020-01-01T01:01:00", dt_format),
         )
