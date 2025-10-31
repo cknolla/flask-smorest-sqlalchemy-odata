@@ -11,6 +11,7 @@ from sqlalchemy import (
     DateTime,
     select,
     Date,
+    LargeBinary,
 )
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, backref
@@ -48,6 +49,7 @@ class User(Base):
     is_active = Column(Boolean, nullable=False, default=True)
     logins = Column(Integer, nullable=False, default=0)
     note = Column(String(256), nullable=True)
+    binary_data = Column(LargeBinary(length=16), nullable=True)
     supervisor_id = Column(
         ForeignKey("users.id"),
         nullable=True,
