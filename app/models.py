@@ -1,5 +1,5 @@
 """Test models."""
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import (
     Column,
@@ -12,6 +12,9 @@ from sqlalchemy import (
     select,
     Date,
     LargeBinary,
+    case,
+    func,
+    text,
 )
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, backref
@@ -80,6 +83,19 @@ class User(Base):
     def username_supervisor_id(cls) -> expression:
         """Return SQL expression."""
         return select(cls.username.concat(cls.supervisor_id)).correlate(cls).as_scalar()
+
+    @hybrid_property
+    def duration(self) -> timedelta:
+        """Return the duration user has existed in seconds."""
+        return self.created - datetime.now()
+
+    @duration.expression
+    def duration(cls) -> expression:
+        """Return SQL Expression for duration."""
+        return case(
+            (cls.created.is_(None), None),
+            else_=func.datediff(text("second"), cls.created, func.current_time()),
+        )
 
 
 class UserRole(Base):
