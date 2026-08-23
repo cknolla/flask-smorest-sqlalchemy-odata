@@ -158,7 +158,13 @@ class Odata:
                     model = field_class
                     self.query = self.query.outerjoin(field)
             else:
-                if field.expression.type.python_type == bytes:
+                try:
+                    python_type = field.expression.type.python_type
+                except NotImplementedError:
+                    raise BadRequest(
+                        description=f"Cannot filter by field {field.key}",
+                    )
+                if python_type == bytes:
                     raise BadRequest(
                         description=f"Cannot filter bytes-type field {field.key}",
                     )
