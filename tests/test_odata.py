@@ -102,16 +102,16 @@ def test_bytes_filter_fails(client: FlaskClient):
     assert body["message"] == "Cannot filter bytes-type field binary_data"
 
 
-def test_bytes_filter_doesnt_crash_duration(client: FlaskClient):
+def test_filter_by_unknown_python_type_works(client: FlaskClient):
     response = client.get(
         "/users",
         query_string={
-            "filter": "duration gt 100",
+            "filter": "duration ne 0",
         },
     )
     body = parse_response(response)
-    assert response.status_code == HTTPStatus.BAD_REQUEST
-    assert body["message"] == "Cannot filter by field duration"
+    assert response.status_code == HTTPStatus.OK
+    assert {user["id"] for user in body} == {1, 2, 3, 4}
 
 
 @pytest.mark.parametrize(

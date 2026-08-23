@@ -161,9 +161,7 @@ class Odata:
                 try:
                     python_type = field.expression.type.python_type
                 except NotImplementedError:
-                    raise BadRequest(
-                        description=f"Cannot filter by field {field.key}",
-                    )
+                    return field
                 if python_type == bytes:
                     raise BadRequest(
                         description=f"Cannot filter bytes-type field {field.key}",

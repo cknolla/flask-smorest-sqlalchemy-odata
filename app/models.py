@@ -14,7 +14,6 @@ from sqlalchemy import (
     LargeBinary,
     case,
     func,
-    text,
 )
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import relationship, backref
@@ -94,7 +93,8 @@ class User(Base):
         """Return SQL Expression for duration."""
         return case(
             (cls.created.is_(None), None),
-            else_=func.datediff(text("second"), cls.created, func.current_time()),
+            else_=func.cast(func.strftime("%s", cls.created), Integer)
+            - func.cast(func.strftime("%s", func.current_time()), Integer),
         )
 
 
